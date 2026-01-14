@@ -21,6 +21,9 @@ class AuditLog(Base):
     decision = Column(String)
     ip = Column(String, nullable=True)
     details = Column(Text, nullable=True)
+    event_type = Column(String, nullable=True)  # e.g., login_failed, login_success, api_call, refresh
+    user_agent = Column(String, nullable=True)
+    suspicious = Column(Integer, default=0)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 

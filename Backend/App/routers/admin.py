@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from App.dependencies import require_roles
-from App.database.session import get_db
-from App.database.models import User
+from App.database import session as db_session
+from App.database.models import User, AuditLog
 from App.schemas.user import UserCreate, UserOut
 from App.core.security import hash_password
+from App.core.audit_logger import get_logs as core_get_logs
 
 router = APIRouter(prefix="/admin")
 
@@ -17,8 +18,25 @@ def get_settings(user=Depends(require_roles("admin"))):
     return {"message": "Admin settings", "user": user}
 
 @router.get("/logs")
-def get_logs(user=Depends(require_roles("admin"))):
-    return {"message": "Admin logs", "user": user}
+def get_logs(user=Depends(require_roles("admin")), db: Session = Depends(db_session.provide_db)):
+    # use core audit logger helper to fetch logs
+    logs = core_get_logs(db, limit=200)
+    out = []
+    for l in logs:
+        out.append({
+            "id": l.id,
+            "username": l.username,
+            "event_type": l.event_type,
+            "endpoint": l.endpoint,
+            "risk_score": l.risk_score,
+            "decision": l.decision,
+            "ip": l.ip,
+            "user_agent": l.user_agent,
+            "details": l.details,
+            "suspicious": l.suspicious,
+            "timestamp": l.timestamp.isoformat() if l.timestamp else None,
+        })
+    return out
 
 @router.get("/users")
 def get_users(user=Depends(require_roles("admin"))):
@@ -31,7 +49,7 @@ def get_reports(user=Depends(require_roles("admin"))):
 def create_user(
     user_data: UserCreate,
     user=Depends(require_roles("admin")),
-    db: Session = Depends(get_db)
+    db: Session = Depends(db_session.provide_db)
 ):
 
     # Check if username or email already exists

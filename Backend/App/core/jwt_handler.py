@@ -4,6 +4,7 @@ from jose.exceptions import JWTError, ExpiredSignatureError
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from App.config import JWT_SECRET, JWT_ALGORITHM, JWT_EXP_MINUTES
+import uuid
 
 # Refresh token life (days)
 REFRESH_EXP_DAYS = 7
@@ -19,6 +20,9 @@ def create_access_token(data: dict, expires_minutes: int | None = None):
     expire = _now_utc() + timedelta(minutes=minutes)
     # store issued-at and expiry as numeric timestamps for compatibility
     now = _now_utc()
+    # ensure a unique token identifier (jti) to detect reuse/theft
+    if "jti" not in to_encode:
+        to_encode["jti"] = uuid.uuid4().hex
     to_encode.update({"iat": int(now.timestamp()), "exp": int(expire.timestamp())})
     token = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return token
